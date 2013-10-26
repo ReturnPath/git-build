@@ -3,4 +3,6 @@
 /.bundle/
 /bin/
 Gemfile.lock
-/pkg
+/pkg/
+/log/
+*.out
