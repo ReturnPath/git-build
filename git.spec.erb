@@ -1,19 +1,29 @@
-Name: git-<%= version %>
+Name: rp-git-<%= version %>
 Version: <%= version %>
 Release: 1
-Summary: Git is a fast, scalable, distributed revision control system with an unusually rich command set that provides both high-level operations and full access to internals.
+Summary: Git is a free and open source distributed version control system designed to handle everything from small to very large projects with speed and efficiency.
 BuildArch: x86_64
 AutoReq: no
 AutoProv: no
 
 Group: default
-License: GPLv2
-Vendor: snap-ci@thoughtworks.com
-URL: http://snap-ci.com
-Packager: snap-ci@thoughtworks.com
+License: GPLv3
+Vendor: jcrotty@jcrotty2.dev.returnpath.net
+URL: http://returnpath.com
+Packager: joe.crotty@returnpath.com
 
+Requires: rp-perl-5.18.1-nt
+Requires: tcl
+Requires: tk
 %description
-Git is a fast, scalable, distributed revision control system with an unusually rich command set that provides both high-level operations and full access to internals.
+A slightly faster profile optimized Git including man and html documentation.
+
+%postun
+/bin/unlink /usr/local/git
+
+%post
+cd /usr/local
+/bin/ln -s git-1.8.4.1 /usr/local/git
 
 %files
 

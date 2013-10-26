@@ -25,6 +25,7 @@ name = "git-#{version}"
 description_string = %Q{Git is a fast, scalable, distributed revision control system with an unusually rich command set that provides both high-level operations and full access to internals.}
 
 jailed_root = File.expand_path('../jailed-root', __FILE__)
+prefix = "/usr/local/#{name}"
 
 CLEAN.include("downloads")
 CLEAN.include("jailed-root")
@@ -42,9 +43,9 @@ end
 
 task :download do
   cd 'downloads' do
-    sh("curl --fail http://git-core.googlecode.com/files/git-#{version}.tar.gz             > git-#{version}.tar.gz 2>/dev/null")
+    sh("curl --fail http://git-core.googlecode.com/files/git-#{version}.tar.gz > git-#{version}.tar.gz 2>/dev/null")
 
-    sh("echo '49004a8dfcbb7c0848147737d9877fd7313a42ec  git-#{version}.tar.gz'             > git-#{version}.tar.gz.shasum 2>/dev/null")
+    sh("echo '49004a8dfcbb7c0848147737d9877fd7313a42ec  git-#{version}.tar.gz' > git-#{version}.tar.gz.shasum 2>/dev/null")
 
     sh("sha1sum --status --check git-#{version}.tar.gz.shasum")
   end
@@ -54,17 +55,18 @@ task :configure do
   cd "src" do
     sh "tar -zxf ../downloads/git-#{version}.tar.gz"
     cd "git-#{version}" do
-      sh "./configure --prefix=/opt/local/git/#{version} > #{File.dirname(__FILE__)}/log/configure.#{version}.log 2>&1"
+      sh "./configure --prefix=#{prefix} --with-perl=/usr/local/perls/perl-5.18.1-nt/bin/perl --with-libpcre > #{File.dirname(__FILE__)}/log/configure.#{version}.log 2>&1"
     end
   end
 end
 
+# as this is a PROFILE=BUILD no need for 'make test' as tests are run while profiling
 task :make do
   num_processors = %x[nproc].chomp.to_i
   num_jobs       = num_processors + 1
 
   cd "src/git-#{version}" do
-    sh("make -j#{num_jobs} > #{File.dirname(__FILE__)}/log/make.#{version}.log 2>&1")
+    sh("make prefix=#{prefix} PROFILE=BUILD all html man > #{File.dirname(__FILE__)}/log/make.#{version}.log 2>&1")
   end
 end
 
@@ -72,7 +74,7 @@ task :make_install do
   rm_rf  jailed_root
   mkdir_p jailed_root
   cd "src/git-#{version}" do
-    sh("make install DESTDIR=#{jailed_root} > #{File.dirname(__FILE__)}/log/make-install.#{version}.log 2>&1")
+    sh("make prefix=#{prefix} PROFILE=BUILD install DESTDIR=#{jailed_root} install-html install-man > #{File.dirname(__FILE__)}/log/make-install.#{version}.log 2>&1")
   end
 end
 
@@ -99,15 +101,19 @@ task :dist do
     at_exit {rm_rf "/tmp/git.spec"}
   end
 
-  mkdir_p "#{jailed_root}/usr/local/bin"
+  #mkdir_p "#{jailed_root}/usr/local/bin"
 
-  cd "#{jailed_root}/usr/local/bin" do
-    Dir["../../../opt/local/git/#{version}/bin/*"].each do |bin_file|
-      ln_sf bin_file, File.basename(bin_file)
-    end
-  end
+  #cd "#{jailed_root}/usr/local/bin" do
+  #  Dir["../../../usr/local/git-#{version}/bin/*"].each do |bin_file|
+  #    ln_sf bin_file, File.basename(bin_file)
+  #  end
+  #end
 
   if distro == 'rpm'
+    mkdir_p "#{jailed_root}/etc/bash_completion.d"
+    mkdir_p "#{jailed_root}/etc/profile.d"
+    sh("cp src/git-#{version}/contrib/completion/git-completion.bash #{jailed_root}/etc/bash_completion.d/")
+    sh("cp ../etc/profile.d/git.sh #{jailed_root}/etc/profile.d/")
     output_dir = File.expand_path('../target-rpms', __FILE__)
     at_exit {rm_rf output_dir}
     cd jailed_root do
@@ -124,6 +130,7 @@ task :dist do
       sh rpmbuild_cmd.join(" ")
     end
     sh("mv target-rpms/x86_64/*.rpm pkg/")
+    sh("mv pkg/rp-git-#{version}-#{version}-1.x86_64.rpm pkg/rp-git-#{version}-1.x86_64.rpm")
   else
     cd "pkg" do
       sh(%Q{
